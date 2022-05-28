@@ -2,7 +2,6 @@
 conf_id: VOC_plain_051622
 algorithm: Plain
 num_iters: 30000
-# num_epochs: 2
 log_interval: 10
 parallel: 0
 
@@ -11,12 +10,12 @@ dataset_root: /home/ubuntu/efs/VOC/VOCdevkit/VOC2012
 dataset_name: VOC
 num_classes: 21
 batch_size: 16
-# batch_size: 2
-num_workers: 2
+num_workers: 64
 
 # model
 model_name: DeepLabV3_ResNet50
 num_layers: 50
+output_stride: 16
 weights_init: ImageNet
 
 # optim

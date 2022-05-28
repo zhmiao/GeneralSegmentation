@@ -43,8 +43,8 @@ def main(config='./configs/voc_plain_051622.yaml',
     #######################
     with open(config) as f:
         conf = Munch(yaml.load(f, Loader=yaml.FullLoader))
-    # if gpus == -1:
-    #     conf.batch_size = int(conf.batch_size / torch.cuda.device_count())
+    if gpus == -1:
+        conf.batch_size = int(conf.batch_size / torch.cuda.device_count())
 
     pl.seed_everything(seed)
 
@@ -86,19 +86,16 @@ def main(config='./configs/voc_plain_051622.yaml',
     # Setup trainer #
     #################
     trainer = pl.Trainer(
-        # max_steps=conf.num_iters,
-        max_steps=10,
+        max_steps=conf.num_iters,
         check_val_every_n_epoch=1, 
         log_every_n_steps = conf.log_interval, 
         gpus=gpus,
-        # logger=None if evaluate is not None else logger,
-        # callbacks=[lr_monitor, checkpoint_callback],
-        # strategy=DDPStrategy(find_unused_parameters=False),
-        strategy='dp',
+        logger=None if evaluate is not None else logger,
+        callbacks=[lr_monitor, checkpoint_callback],
+        strategy=DDPStrategy(find_unused_parameters=False),
         num_sanity_val_steps=0,
         profiler='simple',
-        # precision=16,
-        enable_progress_bar=False,
+        enable_progress_bar=True,
     )
 
     #######
