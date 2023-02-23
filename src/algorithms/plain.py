@@ -7,12 +7,13 @@ import torch
 import torch.optim as optim
 import pytorch_lightning as pl
 
-from .utils import register_algorithm, StreamSegMetrics, PolyLR, denormalize, voc_cmap
-from src.models.utils import get_model
+from .utils import StreamSegMetrics, PolyLR, denormalize, voc_cmap
+from src import models
 
+__all__ = [
+    'Plain'
+]
 
-
-@register_algorithm('Plain')
 class Plain(pl.LightningModule):
 
     """
@@ -25,21 +26,19 @@ class Plain(pl.LightningModule):
         super().__init__()
         self.hparams.update(conf.__dict__)
         self.save_hyperparameters(ignore=['conf', 'train_class_counts'])
-        self.net = get_model(name=self.hparams.model_name,
-                             num_cls=self.hparams.num_classes,
-                             output_stride=self.hparams.output_stride)
+        self.net = models.__dict__[self.hparams.model_name](num_cls=self.hparams.num_classes, 
+                                                            output_stride=self.hparams.output_stride)
+                             
         self.metrics = StreamSegMetrics(self.hparams.num_classes)
 
     def configure_optimizers(self):
         net_optim_params_list = [
             {'params': self.net.feature.parameters(),
-             'lr': self.hparams.lr_feature*torch.cuda.device_count(),
-            #  'lr': self.hparams.lr_feature,
+             'lr': self.hparams.lr_feature * torch.cuda.device_count(),
              'momentum': self.hparams.momentum_feature,
              'weight_decay': self.hparams.weight_decay_feature},
             {'params': self.net.classifier.parameters(),
-             'lr': self.hparams.lr_classifier*torch.cuda.device_count(),
-            #  'lr': self.hparams.lr_classifier,
+             'lr': self.hparams.lr_classifier * torch.cuda.device_count(),
              'momentum': self.hparams.momentum_classifier,
              'weight_decay': self.hparams.weight_decay_classifier}
         ]
@@ -67,8 +66,8 @@ class Plain(pl.LightningModule):
         preds = outputs.detach().max(dim=1)[1]
         self.metrics.update(labels.cpu().numpy(), preds.cpu().numpy())
         return (data.detach().cpu().numpy(), 
-                preds.cpu().numpy(),
-                labels.cpu().numpy())
+                preds.detach().cpu().numpy(),
+                labels.detach().cpu().numpy())
 
     def validation_epoch_end(self, outputs):
         scores = self.metrics.get_results()

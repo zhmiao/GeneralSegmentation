@@ -10,7 +10,10 @@ from torchvision.models.resnet import resnet50
 from torchvision.models.segmentation.deeplabv3 import DeepLabHead, ASPP
 from torchvision.models._utils import IntermediateLayerGetter
 
-from .utils import register_model
+
+__all__ = [
+    'DeepLabV3_ResNet50'
+]
 
 class DeepLabHead(nn.Module):
     def __init__(self, in_channels, num_classes, aspp_dilate=[12, 24, 36]):
@@ -36,7 +39,6 @@ class DeepLabHead(nn.Module):
                 nn.init.constant_(m.weight, 1)
                 nn.init.constant_(m.bias, 0)
 
-@register_model('DeepLabV3_ResNet50')
 class DeepLabV3_ResNet50(nn.Module):
 
     name = 'DeepLabV3_ResNet50'

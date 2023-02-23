@@ -1,32 +1,39 @@
 import os
 import yaml
 import numpy as np
-import fire
+import typer
 from munch import Munch
 
 import torch
 import pytorch_lightning as pl
 from pytorch_lightning.callbacks import ModelCheckpoint, LearningRateMonitor
-from pytorch_lightning.loggers import CSVLogger, CometLogger
+from pytorch_lightning.loggers import CSVLogger, CometLogger, TensorBoardLogger
 from pytorch_lightning.strategies.ddp import DDPStrategy
 
-from src.data.utils import get_dataset
-from src.algorithms.utils import get_algorithm
+from src import algorithms
+from src import datasets
 
 
-def main(config='./configs/voc_plain_051622.yaml',
-         project='VOC',
-         gpus=-1, 
-         logger_type='csv',
-         session=0,
-         np_threads=8,
-         evaluate=None,
-         seed=0):
+app = typer.Typer(pretty_exceptions_show_locals=False)
+
+@app.command()
+def main(
+         config:str='./configs/voc_plain_051622.yaml',
+         project:str='BEANS',
+         gpus:str='0', 
+         logger_type:str='tensorboard',
+         evaluate:str=None,
+         np_threads:str='8',
+         session:int=0,
+         seed:int=0,
+         dev:bool=False
+         ):
 
     ############
     # Set gpus #
     ############
     gpus = gpus if torch.cuda.is_available() else None
+    gpus = [int(i) for i in gpus.split(',')]
 
     #############################
     # Set environment variables #
@@ -43,7 +50,7 @@ def main(config='./configs/voc_plain_051622.yaml',
     #######################
     with open(config) as f:
         conf = Munch(yaml.load(f, Loader=yaml.FullLoader))
-    if gpus == -1:
+    if len(gpus) > 1:
         conf.batch_size = int(conf.batch_size / torch.cuda.device_count())
 
     pl.seed_everything(seed)
@@ -51,23 +58,31 @@ def main(config='./configs/voc_plain_051622.yaml',
     ###########################
     # Load data and algorithm #
     ###########################
-    dataset = get_dataset(conf.dataset_name, conf=conf)
-    learner = get_algorithm(conf.algorithm, conf=conf)
+    dataset = datasets.__dict__[conf.dataset_name](conf=conf)
+    learner = algorithms.__dict__[conf.algorithm](conf=conf)
 
     ###############
     # Load logger #
     ###############
+    log_folder = 'log_dev' if dev else 'log'
     if logger_type == 'csv':
         logger = CSVLogger(
-            save_dir='./log/{}'.format(conf.algorithm),
+            save_dir='./{}/{}'.format(log_folder, conf.algorithm),
             prefix=project,
-            name='{}_{}'.format(conf.algorithm, conf.conf_id),
+            name='{}_{}_{}'.format(conf.algorithm, conf.conf_id, session),
+            version=session
+        )
+    elif logger_type == 'tensorboard':
+        logger = TensorBoardLogger(
+            save_dir='./{}/{}'.format(log_folder, conf.algorithm),
+            prefix=project,
+            name='{}_{}_{}'.format(conf.algorithm, conf.conf_id, session),
             version=session
         )
     elif logger_type == 'comet':
         logger = CometLogger(
             api_key=os.environ.get('COMET_API_KEY'),
-            save_dir='./log/{}'.format(conf.algorithm),
+            save_dir='./{}/{}'.format(log_folder, conf.algorithm),
             project_name=project,  # Optional
             experiment_name='{}_{}_{}'.format(conf.algorithm, conf.conf_id, session),
         )
@@ -75,8 +90,9 @@ def main(config='./configs/voc_plain_051622.yaml',
     ##################
     # Load callbacks #
     ##################
+    weights_folder = 'weights_dev' if dev else 'weights'
     checkpoint_callback = ModelCheckpoint(
-        monitor='valid_mean_IoU', mode='max', dirpath='./weights/{}'.format(conf.algorithm), save_top_k=1,
+        monitor='valid_mean_IoU', mode='max', dirpath='./{}/{}'.format(weights_folder, conf.algorithm), save_top_k=1,
         filename='{}-{}'.format(conf.conf_id, session) + '-{epoch:02d}-{valid_mean_IoU:.2f}', verbose=True
     )
 
@@ -92,7 +108,7 @@ def main(config='./configs/voc_plain_051622.yaml',
         gpus=gpus,
         logger=None if evaluate is not None else logger,
         callbacks=[lr_monitor, checkpoint_callback],
-        strategy=DDPStrategy(find_unused_parameters=False),
+        strategy=DDPStrategy(find_unused_parameters=True) if len(gpus) > 1 else 'dp',
         num_sanity_val_steps=0,
         profiler='simple',
         enable_progress_bar=True,
@@ -107,4 +123,4 @@ def main(config='./configs/voc_plain_051622.yaml',
         trainer.fit(learner, datamodule=dataset)
 
 if __name__ == '__main__':
-    fire.Fire(main)
+    app()

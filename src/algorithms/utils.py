@@ -3,31 +3,6 @@ from torch.optim.lr_scheduler import _LRScheduler
 from torchvision.transforms.functional import normalize
 
 
-algorithms = {}
-
-
-def register_algorithm(name):
-
-    """
-    Algorithm register
-    """
-
-    def decorator(cls):
-        algorithms[name] = cls
-        return cls
-    return decorator
-
-
-def get_algorithm(name, **kwargs):
-
-    """
-    Algorithm getter
-    """
-
-    alg = algorithms[name](**kwargs)
-    return alg
-
-
 class _StreamMetrics(object):
     def __init__(self):
         """ Overridden by subclasses """

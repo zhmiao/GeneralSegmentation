@@ -1,2 +1,1 @@
-from . import utils
-from . import deeplab_v3
+from .deeplab_v3 import *
