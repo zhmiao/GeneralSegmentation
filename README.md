@@ -16,3 +16,12 @@ Once the model is trained, a weight file will be saved to `weights` folder.
 python main.py --config ./configs/voc_plain_051522.yaml --gpus 0 --evaluate path_to_your_weights_file
 ```
 **4) NOTE: Logit adjustment method only works for binary masks now. Don't use it on VOC.**
+
+
+## Basic packages:
+- pytorch
+- torchvision
+- pytorch-lightning
+- numpy
+- typer
+- munch
